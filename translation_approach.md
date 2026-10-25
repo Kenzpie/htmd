@@ -730,3 +730,62 @@ its ends lie in math mode, where whitespace has no significance, and condition 3
 catches the one significant trailing whitespace, a control space. LaTeX reads a
 single newline as a space, and math mode ignores the space which replaces a
 comment, so only a comment in text mode renders differently (see step 1).
+
+### Smart Punctuation
+
+Smart punctuation refers to typographic characters such as curly quotation marks, apostrophes, ellipses, and en/em dashes. Some Markdown processors also provide an optional feature that replaces ordinary ASCII punctuation with these characters when rendering Markdown to HTML.
+
+Since `htmd` translates HTML into Markdown, punctuation should be preserved rather than automatically converted. Smart punctuation is not part of the core CommonMark syntax, and its application during Markdown rendering depends on the renderer's configuration.
+
+The punctuation-preservation strategy applies to both `TranslationMode::Faithful` and `TranslationMode::Pure`. The expected output column describes Faithful mode; Pure mode may differ when translating surrounding HTML structures. The expected results assume a Markdown renderer with automatic smart punctuation disabled.
+
+| Description                         | HTML in                                | Faithful expected     |
+| ----------------------------------- | -------------------------------------- | --------------------- |
+| Straight double quotes              | `<p>"Hello"</p>`                       | `"Hello"`             |
+| Curly double quotes                 | `<p>“Hello”</p>`                       | `“Hello”`             |
+| Straight single quotes              | `<p>'Hello'</p>`                       | `'Hello'`             |
+| Curly single quotes                 | `<p>‘Hello’</p>`                       | `‘Hello’`             |
+| Straight apostrophe                 | `<p>It's fine.</p>`                    | `It's fine.`          |
+| Curly apostrophe                    | `<p>It’s fine.</p>`                    | `It’s fine.`          |
+| Three periods                       | `<p>Wait...</p>`                       | `Wait...`             |
+| Ellipsis character                  | `<p>Wait…</p>`                         | `Wait…`               |
+| Two hyphens                         | `<p>word--word</p>`                    | `word--word`          |
+| En dash                             | `<p>2020–2025</p>`                     | `2020–2025`           |
+| Em dash                             | `<p>Wait—stop!</p>`                    | `Wait—stop!`          |
+| Encoded curly quotes                | `<p>&ldquo;Hello&rdquo;</p>`           | `“Hello”`             |
+| Encoded apostrophe                  | `<p>It&rsquo;s fine.</p>`              | `It’s fine.`          |
+| Encoded ellipsis                    | `<p>Wait&hellip;</p>`                  | `Wait…`               |
+| Punctuation in emphasis             | `<p><em>It’s fine</em></p>`            | `*It’s fine*`         |
+| Punctuation in code                 | `<p><code>"Wait..."</code></p>`        | `` `"Wait..."` ``     |
+| Three hyphens alone                 | `<p>---</p>`                           | `\-\-\-`              |
+| Asterisk near punctuation           | `<p>*Hello*</p>`                       | `\*Hello\*`           |
+| Markdown heading marker             | `<p># Hello</p>`                       | `\# Hello`            |
+| Curly quotes in heading             | `<h1>“Hello”</h1>`                     | `# “Hello”`           |
+| Unicode punctuation in link         | `<p><a href="/test">It’s here</a></p>` | `[It’s here](/test)`  |
+| Mixed punctuation                   | `<p>“Wait...” — really?</p>`           | `“Wait...” — really?` |
+| Emphasis ending in punctuation      | `<em>Hello!</em>`                      | `<em>Hello!</em>`     |
+| Emphasis beginning with punctuation | `<em>“Hello”</em>`                     | `<em>“Hello”</em>`    |
+
+The emphasis examples follow the existing Faithful-mode strategy of preserving the HTML element when its content begins or ends with Unicode punctuation, even where an equivalent CommonMark representation is possible.
+
+The HTML parser resolves character references before conversion. Therefore, an encoded punctuation character and its equivalent literal Unicode character produce the same Markdown text.
+
+The expected outputs specify the intended Markdown serialization, which may include escaping or HTML preservation. Punctuation preservation refers to retaining the original punctuation characters in the translated content while applying any escaping or serialization necessary to prevent unintended Markdown interpretation. The Markdown source representation may differ from the original HTML, but it should preserve equivalent punctuation when rendered with automatic smart punctuation disabled.
+
+### Approach
+
+1. Read punctuation characters from the parsed HTML text nodes, after HTML character references have been decoded.
+2. Preserve ASCII punctuation without automatically replacing straight quotation marks, apostrophes, consecutive periods, or hyphens with typographic equivalents.
+3. Preserve existing Unicode punctuation, including curly quotation marks, typographic apostrophes, ellipses, en dashes, and em dashes.
+4. Apply the normal Markdown escaping rules where necessary to prevent punctuation from being interpreted as Markdown syntax. Escaping may change the literal Markdown representation, but the rendered punctuation should remain equivalent to the original HTML text.
+5. Preserve punctuation inside code spans and code blocks as literal content, following the existing rules for code translation. Do not apply smart punctuation substitutions inside code. Characters requiring special handling within code spans, such as backticks, must follow the existing code-delimiter rules.
+6. Handle punctuation inside links, emphasis, headings, and other Markdown structures according to their existing translation rules. In particular, punctuation at the beginning or end of emphasized content may affect Markdown delimiter recognition. Follow the existing emphasis rules, including serialization as HTML where necessary, rather than introducing special punctuation conversions.
+7. Apply the same punctuation-preservation rules in Faithful and Pure modes. Differences between these modes are determined by the surrounding HTML elements, not by smart punctuation itself.
+
+### Limitations
+
+A Markdown renderer with automatic smart punctuation enabled may replace ASCII quotation marks, apostrophes, periods, or hyphens during rendering. Therefore, punctuation preservation during HTML-to-Markdown conversion does not guarantee identical punctuation after Markdown is rendered back to HTML with smart punctuation enabled.
+
+The translator should not attempt to reverse-engineer typographic punctuation into ASCII equivalents. For example, an existing em dash must remain an em dash rather than being replaced with multiple hyphens.
+
+Punctuation inside code spans and code blocks should remain literal regardless of whether the renderer enables smart punctuation, provided the content is represented using valid Markdown code delimiters and follows the existing code translation rules.
